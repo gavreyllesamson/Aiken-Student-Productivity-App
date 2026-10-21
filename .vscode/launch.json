@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "AIken: open app in browser",
+      "cwd": "${workspaceFolder}",
+      "command": "node --version && npx -y pnpm@10 install && cd artifacts/aiken-mobile && npx expo start --web --port 8081"
+    }
+  ]
+}

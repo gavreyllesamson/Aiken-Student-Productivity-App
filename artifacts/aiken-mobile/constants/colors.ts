@@ -1,59 +1,99 @@
 /**
- * Semantic design tokens for the mobile app.
- *
- * These tokens mirror the naming conventions used in web artifacts (index.css)
- * so that multi-artifact projects share a cohesive visual identity.
- *
- * Replace the placeholder values below with values that match the project's
- * brand. If a sibling web artifact exists, read its index.css and convert the
- * HSL values to hex so both artifacts use the same palette.
- *
- * To add dark mode, add a `dark` key with the same token names.
- * The useColors() hook will automatically pick it up.
+ * AIken design tokens (from the Figma file "Aiken - UI/UX", collections Theme · Light / Theme · Dark).
+ * useColors() picks the palette that matches the device appearance.
  */
+const light = {
+  // Brand
+  red: '#D63A2C',
+  redDeep: '#C42F25',
+  redSoft: '#F0624A',
+  yellow: '#F6C95C',
+  ink: '#0B0B0B',
+  cream: '#FDFBF7',
+  green: '#2E9E5B',
 
-const colors = {
-  light: {
-    // Legacy aliases (kept for backward compatibility)
-    text: '#33261f',
-    tint: '#F2A93B',
+  // Semantic
+  bg: '#FDFBF7',
+  text: '#0B0B0B',
+  muted: '#5A4B42',
+  accentText: '#D63A2C',
+  surface: 'rgba(255,255,255,0.55)',
+  surfaceStrong: 'rgba(255,255,255,0.85)',
+  border: 'rgba(255,255,255,0.8)',
+  track: 'rgba(255,255,255,0.45)',
+  divider: 'rgba(11,11,11,0.08)',
+  sheet: 'rgba(255,250,245,0.98)',
+  scrim: 'rgba(11,11,11,0.40)',
+  yellowSoft: 'rgba(246,201,92,0.55)',
+  onYellow: '#0B0B0B',
+  yellowPill: 'rgba(246,201,92,0.75)',
+  inputBg: '#FFFFFF',
+  inputBorder: 'rgba(246,201,92,0.7)',
+  errorBg: 'rgba(214,58,44,0.10)',
+  errorBorder: 'rgba(214,58,44,0.45)',
+  inkButton: '#0B0B0B',
+  onInkButton: '#FDFBF7',
+  glowA: 'rgba(214,58,44,0.45)',
+  glowB: 'rgba(246,201,92,0.75)',
+  glowC: 'rgba(240,98,74,0.35)',
+  blurTint: 'light' as 'light' | 'dark',
 
-    // Core surfaces
-    background: '#FFFBF3',
-    foreground: '#33261f',
-
-    // Cards / elevated surfaces
-    card: '#FFFFFF',
-    cardForeground: '#33261f',
-
-    // Primary action color (buttons, links, active states)
-    primary: '#F2A93B',
-    primaryForeground: '#ffffff',
-
-    // Secondary / less-emphasis interactive surfaces
-    secondary: '#FFF1D8',
-    secondaryForeground: '#33261f',
-
-    // Muted / subdued elements (dividers, timestamps, placeholders)
-    muted: '#F3E9DC',
-    mutedForeground: '#866F62',
-
-    // Accent highlights (badges, selected items, focus rings)
-    accent: '#B4232A',
-    accentForeground: '#FFFFFF',
-
-    // Destructive actions (delete, error states)
-    destructive: '#B4232A',
-    destructiveForeground: '#ffffff',
-
-    // Borders and input outlines
-    border: '#E9D9CA',
-    input: '#E9D9CA',
-  },
-
-  // Border radius (in px). Sync from the sibling web artifact's --radius
-  // CSS variable. This value applies to cards, buttons, inputs, and modals.
-  radius: 8,
+  // Legacy aliases used by older components
+  tint: '#D63A2C',
+  background: '#FDFBF7',
+  foreground: '#0B0B0B',
+  card: '#FFFFFF',
+  cardForeground: '#0B0B0B',
+  primary: '#D63A2C',
+  primaryForeground: '#FFFFFF',
+  secondary: '#FFF1D8',
+  secondaryForeground: '#0B0B0B',
+  mutedForeground: '#5A4B42',
+  accent: '#F6C95C',
+  accentForeground: '#0B0B0B',
+  destructive: '#D63A2C',
+  destructiveForeground: '#FFFFFF',
+  input: 'rgba(246,201,92,0.7)',
 };
 
+export type Palette = typeof light;
+
+const dark: Palette = {
+  ...light,
+  bg: '#0B0B0B',
+  text: '#F7EFE7',
+  muted: '#CDBFB2',
+  accentText: '#FF6B57',
+  surface: 'rgba(255,255,255,0.075)',
+  surfaceStrong: 'rgba(255,255,255,0.12)',
+  border: 'rgba(255,255,255,0.14)',
+  track: 'rgba(255,255,255,0.08)',
+  divider: 'rgba(255,255,255,0.12)',
+  sheet: 'rgba(28,23,21,0.98)',
+  scrim: 'rgba(0,0,0,0.55)',
+  yellowSoft: 'rgba(246,201,92,0.18)',
+  onYellow: '#F6C95C',
+  yellowPill: 'rgba(246,201,92,0.85)',
+  inputBg: 'rgba(255,255,255,0.08)',
+  inputBorder: 'rgba(246,201,92,0.35)',
+  errorBg: 'rgba(255,107,87,0.12)',
+  errorBorder: 'rgba(255,107,87,0.5)',
+  inkButton: '#F7EFE7',
+  onInkButton: '#0B0B0B',
+  glowA: 'rgba(217,58,46,0.62)',
+  glowB: 'rgba(246,201,92,0.34)',
+  glowC: 'rgba(240,98,74,0.48)',
+  blurTint: 'dark',
+
+  tint: '#FF6B57',
+  background: '#0B0B0B',
+  foreground: '#F7EFE7',
+  card: '#1C1715',
+  cardForeground: '#F7EFE7',
+  secondary: '#2A211D',
+  secondaryForeground: '#F7EFE7',
+  mutedForeground: '#CDBFB2',
+};
+
+const colors = { light, dark, radius: 14 };
 export default colors;

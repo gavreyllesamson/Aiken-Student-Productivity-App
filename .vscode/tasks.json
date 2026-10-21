@@ -1,0 +1,58 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AIken: install and open app in browser",
+      "type": "shell",
+      "command": "node --version && npx -y pnpm@10 install && cd artifacts/aiken-mobile && npx expo start --web --port 8081",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Install dependencies",
+      "type": "shell",
+      "command": "pnpm install",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run mockup (localhost:5173)",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/mockup-sandbox dev",
+      "options": {
+        "env": {
+          "PORT": "5173",
+          "BASE_PATH": "/"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Run API server (localhost:5000)",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/api-server dev",
+      "options": {
+        "env": {
+          "PORT": "5000"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Run mobile app (Expo)",
+      "type": "shell",
+      "command": "pnpm --filter @workspace/aiken-mobile dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Typecheck all",
+      "type": "shell",
+      "command": "pnpm run typecheck",
+      "problemMatcher": [
+        "$tsc"
+      ]
+    }
+  ]
+}

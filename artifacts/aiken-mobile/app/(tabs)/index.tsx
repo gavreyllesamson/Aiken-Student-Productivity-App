@@ -1,48 +1,181 @@
-import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { theme } from '@/constants/theme';
-import { useAiken } from '@/context/AikenContext';
-import { CalendarEvent } from '@/types/models';
-import { Card, Field, Icon, PillButton, PrimaryButton, SectionTitle } from '@/components/UI';
+import React, { useRef } from 'react';
+import { Pressable, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { Button, Card, Checkbox, GRAD, Icon, IconBox, OfflineBanner, Pill, Progress, Screen, T } from '@/components/aiken/kit';
+import { Tour, type TourTarget } from '@/components/aiken/Tour';
+import { initials, useApp } from '@/context/AppState';
+import { useColors } from '@/hooks/useColors';
 
-const eventColors: Record<CalendarEvent['type'], string> = { class: theme.blue, deadline: theme.maroon, meeting: theme.lavender, deep_work: theme.green, pomodoro: theme.amber, custom: theme.mutedInk };
-const dateKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export default function CalendarScreen() {
-  const insets = useSafeAreaInsets();
-  const { events, pendingActions, approveAction, rejectAction, addPendingEvent } = useAiken();
-  const [refreshing, setRefreshing] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [title, setTitle] = useState('');
-  const [dayOffset, setDayOffset] = useState(0);
-  const [startHour, setStartHour] = useState('16');
-  const today = new Date();
-  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => { const value = new Date(today); value.setDate(today.getDate() + index); return value; }), []);
-  const hourRows = Array.from({ length: 11 }, (_, index) => index + 8);
-  const onRefresh = () => { setRefreshing(true); setTimeout(() => setRefreshing(false), 500); };
-  const addEvent = () => {
-    if (!title.trim()) return;
-    const date = new Date(); date.setDate(date.getDate() + dayOffset); date.setHours(Number(startHour) || 16, 0, 0, 0);
-    const end = new Date(date.getTime() + 60 * 60000);
-    addPendingEvent({ id: `custom-${Date.now()}`, title: title.trim(), type: 'custom', start: date.toISOString(), end: end.toISOString() }, 'You asked Aiken to add this event. It will appear after you approve it.');
-    setTitle(''); setModalVisible(false);
-  };
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+export default function Home() {
+  const c = useColors();
+  const { online, setOnline, todos, toggleTodo, events, plans, files, google, profile, tourDone } = useApp();
+  const now = new Date();
+  const today = events.filter((e) => e.day === 0);
+  const next = today[0];
+  const then = today[1];
+  const done = todos.filter((t) => t.done).length;
+  const open = todos.filter((t) => !t.done).slice(0, 3);
+  const activePlan = plans.find((p) => p.status !== 'Done');
+
+  // Suggestions come from what the user has set up. A new user gets setup suggestions.
+  const suggestions: { icon: 'link' | 'upload' | 'calendar' | 'bell'; title: string; sub: string; label: string; go: () => void }[] = [];
+  if (activePlan) {
+    const left = activePlan.steps.filter((s) => !s.done).length;
+    suggestions.push({ icon: 'bell', title: `${activePlan.title}: ${left} step${left === 1 ? '' : 's'} left`, sub: activePlan.note ?? 'Keep your action plan moving', label: 'View', go: () => router.push(`/action-plan/${activePlan.id}`) });
+  }
+  if (!google) suggestions.push({ icon: 'link', title: 'Connect Google Classroom', sub: 'Bring in your classes and due dates', label: 'Connect', go: () => router.push('/connected') });
+  if (!files.length) suggestions.push({ icon: 'upload', title: 'Add your student handbook', sub: 'So Alken can answer with sources', label: 'Upload', go: () => router.push('/library') });
+  if (!events.length) suggestions.push({ icon: 'calendar', title: 'Add your first class', sub: 'Or connect Classroom to import them', label: 'Add', go: () => router.push('/add-event') });
+
+  const refs = { suggest: useRef<View>(null), next: useRef<View>(null), due: useRef<View>(null) };
+  const targets: TourTarget[] = [
+    { ref: refs.suggest, title: 'Alken plans your day', body: 'Suggestions here come from your schedule and action plans. Tap a button to act on one.' },
+    { ref: refs.next, title: 'Your next class, always on top', body: 'Synced from Google Classroom, Teams and Outlook, or added by you.' },
+    { ref: refs.due, title: 'Due soon', body: 'Tasks from your classes and action plans. Check them off as you go.', above: true },
+    { tab: 2, title: 'Ask Alken anything', body: 'Ask about school rules, deadlines or your files. Alken answers with sources.' },
+    { tab: 3, title: 'Concerns become action plans', body: 'Every answer can turn into a saved plan with steps, documents and the right office to contact.' },
+    { tab: 4, title: 'Your Library', body: 'Upload syllabi, handbooks and notes. Alken reads them so its answers fit your school.' },
+  ];
+
   return (
-    <View style={styles.page}>
-      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.maroon} />} contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: 120 }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.topRow}><View><Text style={styles.greeting}>Good morning, Shena</Text><Text style={styles.subGreeting}>Here’s the shape of your week.</Text></View><View style={styles.avatar}><Text style={styles.avatarText}>S</Text></View></View>
-        {pendingActions.length > 0 && <Card style={styles.approvalCard}><View style={styles.approvalTop}><View style={styles.approvalIcon}><Icon name="shield" size={17} color={theme.maroon} /></View><View style={{ flex: 1 }}><Text style={styles.approvalTitle}>{pendingActions.length} approval{pendingActions.length > 1 ? 's' : ''} waiting</Text><Text style={styles.approvalText}>Aiken never changes your calendar without your tap.</Text></View></View>{pendingActions.slice(0, 1).map((action) => <View key={action.id} style={styles.approvalActions}><Pressable onPress={() => rejectAction(action.id)}><Text style={styles.reject}>Not now</Text></Pressable><PrimaryButton label="Approve" icon="check" onPress={() => approveAction(action.id)} style={styles.approveButton} /></View>)}</Card>}
-        <SectionTitle eyebrow="This week" title="Your calendar" action="Add event" onAction={() => setModalVisible(true)} />
-        <View style={styles.weekCard}><View style={styles.weekHeader}><View style={styles.timeGutter} /><View style={styles.daysRow}>{weekDays.map((day, index) => <View key={dateKey(day)} style={[styles.day, index === 0 && styles.todayDay]}><Text style={styles.dayName}>{day.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 3).toUpperCase()}</Text><Text style={[styles.dayNumber, index === 0 && styles.todayNumber]}>{day.getDate()}</Text></View>)}</View></View><View style={styles.gridBody}><View style={styles.timeColumn}>{hourRows.map((hour) => <Text key={hour} style={styles.timeLabel}>{hour > 12 ? hour - 12 : hour}{hour >= 12 ? ' PM' : ' AM'}</Text>)}</View><View style={styles.grid}>{weekDays.map((day, dayIndex) => <View key={dateKey(day)} style={styles.column}>{hourRows.map((hour) => <View key={hour} style={styles.gridLine} />)}{events.filter((event) => { const eventDate = new Date(event.start); return dateKey(eventDate) === dateKey(day); }).map((event) => { const start = new Date(event.start); const end = new Date(event.end); const top = Math.max(0, (start.getHours() + start.getMinutes() / 60 - 8) * 46); const height = Math.max(27, (end.getTime() - start.getTime()) / 3600000 * 46); return <View key={event.id} style={[styles.event, { top, height, backgroundColor: eventColors[event.type] }]}><Text numberOfLines={2} style={styles.eventText}>{event.title}</Text></View>; })}</View>)}</View></View></View>
-        <View style={styles.legend}>{[['class', 'Class'], ['deadline', 'Deadline'], ['meeting', 'Meeting']].map(([type, label]) => <View key={type} style={styles.legendItem}><View style={[styles.dot, { backgroundColor: eventColors[type as CalendarEvent['type']] }]} /><Text style={styles.legendText}>{label}</Text></View>)}</View>
-        <Card style={styles.nextCard}><View style={styles.nextIcon}><Icon name="sunrise" color={theme.maroon} /></View><View style={{ flex: 1 }}><Text style={styles.nextEyebrow}>Up next</Text><Text style={styles.nextTitle}>{events.find((event) => new Date(event.start) > new Date())?.title ?? 'No upcoming classes'}</Text><Text style={styles.nextText}>Your schedule is synced on demand from 3 sources.</Text></View><Icon name="chevron-right" color={theme.mutedInk} /></Card>
-      </ScrollView>
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}><View style={styles.modalBackdrop}><View style={styles.modal}><View style={styles.modalHandle} /><View style={styles.modalHeading}><Text style={styles.modalTitle}>Add event</Text><Pressable onPress={() => setModalVisible(false)}><Icon name="x" color={theme.mutedInk} /></Pressable></View><Text style={styles.label}>What should we remember?</Text><Field value={title} onChangeText={setTitle} placeholder="e.g. Finish design brief" /><Text style={styles.label}>Day</Text><View style={styles.choiceRow}>{['Today', 'Tomorrow', 'In 2 days'].map((label, index) => <PillButton key={label} label={label} active={dayOffset === index} onPress={() => setDayOffset(index)} />)}</View><Text style={styles.label}>Start hour</Text><Field value={startHour} onChangeText={setStartHour} placeholder="16" /><PrimaryButton label="Add for approval" icon="plus" onPress={addEvent} style={{ marginTop: 22 }} /></View></View></Modal>
+    <View style={{ flex: 1 }}>
+      <Screen tabs contentStyle={!online ? { paddingTop: 80 } : undefined}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <T size={56} w={800} color="red" style={{ letterSpacing: -2, lineHeight: 60 }}>
+            {now.getDate()}
+          </T>
+          <View style={{ flex: 1 }}>
+            <T size={13} color="muted">
+              {greeting()}{profile.first ? `, ${profile.first}` : ''}
+            </T>
+            <T size={22} w={800} style={{ letterSpacing: -0.4 }}>
+              {DAYS[now.getDay()]}
+            </T>
+            <T size={13} color="muted">
+              {MONTHS[now.getMonth()]} {now.getFullYear()}
+            </T>
+            <Pressable onLongPress={() => setOnline(!online)} delayLongPress={600} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <Icon name={!online ? 'wifi-off' : google ? 'refresh-cw' : 'cloud-off'} size={11} color={!online ? c.accentText : google ? c.green : c.muted} />
+              <T size={11} w={700} color={!online ? 'accentText' : google ? c.green : 'muted'}>
+                {!online ? 'Offline · showing saved data' : google ? 'Synced just now' : 'No accounts connected'}
+              </T>
+            </Pressable>
+          </View>
+          <Pressable onPress={() => router.push('/account')} accessibilityLabel="Account">
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.yellowSoft, borderWidth: 3, borderColor: c.yellow, alignItems: 'center', justifyContent: 'center' }}>
+              {profile.first || profile.email ? (
+                <T w={800} size={16} color="accentText">
+                  {initials(profile)}
+                </T>
+              ) : (
+                <Icon name="user" size={22} color={c.accentText} />
+              )}
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Alken suggests */}
+        <View ref={refs.suggest} collapsable={false}>
+          <Card gap={10}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <IconBox name="zap" size={26} tone="grad" />
+              <T w={800} size={16}>
+                {suggestions.length && !activePlan && !events.length ? 'Get started' : 'Alken suggests'}
+              </T>
+            </View>
+            {suggestions.length === 0 ? (
+              <T size={13} color="muted">You’re all set. Alken will suggest study blocks as your schedule fills up.</T>
+            ) : (
+              suggestions.slice(0, 3).map((s) => (
+                <View key={s.title} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <IconBox name={s.icon} />
+                  <View style={{ flex: 1 }}>
+                    <T w={700} size={14}>{s.title}</T>
+                    <T size={12} color="muted">{s.sub}</T>
+                  </View>
+                  <Button small kind="ink" label={s.label} onPress={s.go} />
+                </View>
+              ))
+            )}
+          </Card>
+        </View>
+
+        {/* Next class */}
+        <View ref={refs.next} collapsable={false}>
+          {next ? (
+            <Pressable onPress={() => router.push('/schedule')}>
+              <LinearGradient colors={GRAD} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 26, padding: 20, gap: 8 }}>
+                <T size={12} w={800} color="rgba(255,255,255,0.9)" style={{ letterSpacing: 1.5 }}>
+                  NEXT CLASS
+                </T>
+                <T size={26} w={800} color="#FFFFFF" style={{ letterSpacing: -0.5 }}>
+                  {next.title}
+                </T>
+                <T size={14} w={600} color="rgba(255,255,255,0.92)">
+                  {next.start} – {next.end}
+                </T>
+                {then ? (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                    <T size={12} w={700} color="rgba(255,255,255,0.9)">Then: {then.title}</T>
+                    <T size={12} w={700} color="rgba(255,255,255,0.9)">{then.start}</T>
+                  </View>
+                ) : null}
+              </LinearGradient>
+            </Pressable>
+          ) : (
+            <Card gap={8}>
+              <T size={12} w={800} color="muted" style={{ letterSpacing: 1.5 }}>NEXT CLASS</T>
+              <T w={800} size={18}>No classes today</T>
+              <T size={13} color="muted">Your next class shows here once you add your schedule or connect Classroom.</T>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                <Button small label="Add a class" icon="plus" onPress={() => router.push('/add-event')} />
+                <Button small kind="glass" label="Open Schedule" onPress={() => router.push('/schedule')} />
+              </View>
+            </Card>
+          )}
+        </View>
+
+        {/* Due soon */}
+        <View ref={refs.due} collapsable={false}>
+          <Card gap={12}>
+            <View>
+              <T w={800} size={18}>Due soon</T>
+              <T size={12} color="muted">
+                {todos.length ? `${done} of ${todos.length} done` : 'Nothing due yet'}
+              </T>
+            </View>
+            {todos.length ? <Progress value={done / todos.length} /> : null}
+            {todos.length === 0 ? (
+              <T size={13} color="muted">Tasks from your classes and action plans will appear here.</T>
+            ) : open.length === 0 ? (
+              <T size={13} color="muted">You’re all caught up.</T>
+            ) : (
+              open.map((t) => (
+                <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Checkbox checked={t.done} onPress={() => toggleTodo(t.id)} />
+                  <View style={{ flex: 1 }}>
+                    <T w={700} size={14}>{t.title}</T>
+                    <T size={12} color="muted">{t.sub}</T>
+                  </View>
+                  <Pill label={t.due} tone={t.due === 'Today' ? 'yellow' : 'muted'} />
+                </View>
+              ))
+            )}
+          </Card>
+        </View>
+      </Screen>
+
+      {!online ? <OfflineBanner message="Showing saved data · changes sync later" onRetry={() => setOnline(true)} /> : null}
+      {!tourDone ? <Tour targets={targets} /> : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: theme.cream }, content: { paddingHorizontal: 18 }, topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }, greeting: { fontFamily: 'Inter_700Bold', color: theme.ink, fontSize: 27, letterSpacing: -0.7 }, subGreeting: { fontFamily: 'Inter_400Regular', color: theme.mutedInk, fontSize: 14, marginTop: 5 }, avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.maroon, alignItems: 'center', justifyContent: 'center' }, avatarText: { color: theme.cream, fontFamily: 'Inter_700Bold', fontSize: 17 }, approvalCard: { backgroundColor: '#FFF4E2', marginBottom: 22, borderWidth: 1, borderColor: '#F6D39C' }, approvalTop: { flexDirection: 'row', gap: 11, alignItems: 'center' }, approvalIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFE3BB', alignItems: 'center', justifyContent: 'center' }, approvalTitle: { fontFamily: 'Inter_700Bold', color: theme.ink, fontSize: 14 }, approvalText: { fontFamily: 'Inter_400Regular', color: theme.mutedInk, fontSize: 12, marginTop: 2 }, approvalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 18, marginTop: 14 }, reject: { color: theme.maroon, fontFamily: 'Inter_600SemiBold', fontSize: 13 }, approveButton: { minHeight: 38, paddingHorizontal: 14 }, weekCard: { backgroundColor: theme.colors.card, borderRadius: theme.radius.card, overflow: 'hidden', shadowColor: theme.shadow.color, shadowOpacity: theme.shadow.opacity, shadowRadius: theme.shadow.radius, elevation: 2 }, weekHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.colors.border }, timeGutter: { width: 49 }, daysRow: { flex: 1, flexDirection: 'row' }, day: { flex: 1, alignItems: 'center', paddingVertical: 11 }, todayDay: { backgroundColor: theme.amberSoft }, dayName: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: theme.mutedInk }, dayNumber: { fontFamily: 'Inter_700Bold', color: theme.ink, fontSize: 15, marginTop: 5 }, todayNumber: { color: theme.maroon }, gridBody: { flexDirection: 'row' }, timeColumn: { width: 49, paddingTop: 3 }, timeLabel: { height: 46, textAlign: 'right', paddingRight: 7, paddingTop: 7, color: theme.mutedInk, fontFamily: 'Inter_400Regular', fontSize: 9 }, grid: { flex: 1, flexDirection: 'row' }, column: { flex: 1, position: 'relative' }, gridLine: { height: 46, borderBottomWidth: 1, borderLeftWidth: 1, borderColor: '#F2E8DC' }, event: { position: 'absolute', left: 2, right: 2, borderRadius: 6, padding: 4, overflow: 'hidden' }, eventText: { color: theme.cream, fontFamily: 'Inter_700Bold', fontSize: 9, lineHeight: 12 }, legend: { flexDirection: 'row', gap: 15, marginTop: 12, marginBottom: 25 }, legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 }, dot: { width: 7, height: 7, borderRadius: 4 }, legendText: { color: theme.mutedInk, fontFamily: 'Inter_500Medium', fontSize: 11 }, nextCard: { flexDirection: 'row', gap: 11, alignItems: 'center', marginBottom: 12 }, nextIcon: { width: 39, height: 39, backgroundColor: theme.amberSoft, borderRadius: 13, justifyContent: 'center', alignItems: 'center' }, nextEyebrow: { color: theme.maroon, fontFamily: 'Inter_700Bold', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }, nextTitle: { color: theme.ink, fontFamily: 'Inter_700Bold', fontSize: 15, marginTop: 3 }, nextText: { color: theme.mutedInk, fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 3 }, modalBackdrop: { flex: 1, backgroundColor: 'rgba(51,38,31,0.32)', justifyContent: 'flex-end' }, modal: { backgroundColor: theme.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 22, paddingBottom: 35 }, modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 4, backgroundColor: theme.colors.border, marginBottom: 20 }, modalHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }, modalTitle: { color: theme.ink, fontFamily: 'Inter_700Bold', fontSize: 25 }, label: { fontFamily: 'Inter_700Bold', color: theme.ink, fontSize: 12, marginBottom: 8, marginTop: 12 }, choiceRow: { flexDirection: 'row', gap: 8 },
-});
